@@ -3,920 +3,148 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Balatro-like Solitaire</title>
-    <!-- Tailwind CSS via Play CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Tic Tac Toe</title>
     <style>
-        /* Custom CSS for cards and other elements will go here */
         body {
-            font-family: sans-serif;
-            background-color: #1f2937; /* bg-gray-800 */
-            color: white;
-        }
-        .card {
-            display: inline-flex; /* Use inline-flex for better control */
+            font-family: Arial, sans-serif;
+            display: flex;
             flex-direction: column;
-            justify-content: space-between;
-            background-color: white;
-            border: 1px solid #d1d5db; /* border-gray-300 */
-            border-radius: 0.375rem; /* rounded-md */
-            padding: 0.25rem; /* p-1 */
-            width: 4rem; /* w-16 */
-            height: 6rem; /* h-24 */
-            margin: 0.25rem; /* Add some margin */
-            user-select: none; /* Prevent text selection */
-            cursor: pointer; /* Indicate clickable */
-            position: relative; /* For potential absolute positioning inside */
+            align-items: center;
+            background-color: #f0f0f0;
         }
-        .card.selected {
-            border: 2px solid #3b82f6; /* border-blue-500 */
-            transform: scale(1.05);
+
+        .game-container {
+            margin: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
-        .card-rank {
-            font-size: 1.125rem; /* text-lg */
-            font-weight: bold;
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            gap: 5px;
+            margin: 20px 0;
         }
-        .card-suit {
-            font-size: 1.875rem; /* text-3xl */
+
+        .cell {
+            width: 100px;
+            height: 100px;
+            border: 2px solid #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 40px;
+            cursor: pointer;
+            background: #fff;
+            transition: background 0.3s;
+        }
+
+        .cell:hover {
+            background: #f8f8f8;
+        }
+
+        .status {
+            font-size: 24px;
+            margin: 20px 0;
             text-align: center;
-            line-height: 1; /* Adjust line height for centering */
         }
-        .card-rank.bottom {
-            transform: rotate(180deg);
+
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
         }
-        .text-red { color: #dc2626; /* text-red-600 */ }
-        .text-black { color: #000000; }
 
-        /* Hide scrollbars for hand/joker areas if they overflow */
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
+        button:hover {
+            background: #0056b3;
+        }
     </style>
 </head>
-<body class="p-4">
-
-    <!-- Game Area -->
-    <div id="game-container" class="max-w-4xl mx-auto">
-
-        <!-- Top Info Area: Blinds, Score, Money, Hands/Discards Left -->
-        <div id="info-area" class="flex justify-between items-center bg-gray-700 p-3 rounded mb-4">
-            <div>
-                <h2 class="text-lg font-semibold">Blind: <span id="blind-name">Small Blind</span></h2>
-                <p>Target: <span id="blind-target">300</span></p>
-            </div>
-            <div>
-                <p>Score: <span id="current-score">0</span></p>
-            </div>
-            <div>
-                <p>Money: $<span id="money">0</span></p>
-            </div>
-            <div>
-                <p>Hands: <span id="hands-remaining">4</span> / 4</p>
-                <p>Discards: <span id="discards-remaining">3</span> / 3</p>
-            </div>
+<body>
+    <div class="game-container">
+        <h1>Tic Tac Toe</h1>
+        <div class="status" id="status">Player X's turn</div>
+        <div class="grid" id="grid">
+            <div class="cell" data-index="0"></div>
+            <div class="cell" data-index="1"></div>
+            <div class="cell" data-index="2"></div>
+            <div class="cell" data-index="3"></div>
+            <div class="cell" data-index="4"></div>
+            <div class="cell" data-index="5"></div>
+            <div class="cell" data-index="6"></div>
+            <div class="cell" data-index="7"></div>
+            <div class="cell" data-index="8"></div>
         </div>
-
-        <!-- Jokers Area -->
-        <div class="mb-4">
-            <h3 class="text-md font-semibold mb-1">Jokers:</h3>
-            <div id="jokers-area" class="flex flex-wrap bg-gray-600 p-2 rounded min-h-[7rem] no-scrollbar overflow-x-auto">
-                <!-- Joker cards will be added here -->
-                <span class="text-gray-400 italic">No Jokers yet</span>
-            </div>
-        </div>
-
-        <!-- Player Hand Area -->
-         <div class="mb-4">
-            <h3 class="text-md font-semibold mb-1">Hand (<span id="hand-size">0</span>/8):</h3>
-            <div id="hand-area" class="flex flex-wrap justify-center bg-gray-600 p-2 rounded min-h-[7rem] no-scrollbar overflow-x-auto">
-                <!-- Player hand cards will be added here -->
-                 <span class="text-gray-400 italic">Hand is empty</span>
-            </div>
-        </div>
-
-        <!-- Actions Area: Play Selected, Discard Selected -->
-        <div id="actions-area" class="flex justify-center space-x-4 mb-4">
-            <button id="play-button" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50" disabled>Play Selected (<span id="selected-count">0</span>)</button>
-            <button id="discard-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50" disabled>Discard Selected (<span id="selected-count-discard">0</span>)</button>
-        </div>
-
-        <!-- Last Hand Played Info -->
-        <div id="last-hand-info" class="text-center text-gray-400 mb-4 h-6">
-             <!-- Info about the last hand played -->
-        </div>
-
-        <!-- Shop Area (Initially Hidden) -->
-        <div id="shop-area" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center" style="display: none;">
-            <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-lg w-full">
-                <h2 class="text-2xl font-bold mb-4 text-center">Shop</h2>
-                <div id="shop-items" class="grid grid-cols-2 gap-4 mb-4">
-                    <!-- Shop items (Jokers, etc.) will be added here -->
-                </div>
-                 <p class="text-center mb-4">Money: $<span id="shop-money">0</span></p>
-                <div class="text-center">
-                    <button id="leave-shop-button" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Leave Shop</button>
-                </div>
-            </div>
-        </div>
-
+        <button onclick="resetGame()">Reset Game</button>
     </div>
 
-    <!-- Game Logic -->
     <script>
-        // --- Constants ---
-        const SUITS = { H: '♥', D: '♦', C: '♣', S: '♠' };
-        const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
-        const HAND_TYPES = { // Basic definitions, scores TBD
-            HIGH_CARD: { name: 'High Card', baseChips: 5, baseMult: 1 },
-            PAIR: { name: 'Pair', baseChips: 10, baseMult: 2 },
-            TWO_PAIR: { name: 'Two Pair', baseChips: 20, baseMult: 2 },
-            THREE_OF_A_KIND: { name: 'Three of a Kind', baseChips: 30, baseMult: 3 },
-            STRAIGHT: { name: 'Straight', baseChips: 30, baseMult: 4 },
-            FLUSH: { name: 'Flush', baseChips: 35, baseMult: 4 },
-            FULL_HOUSE: { name: 'Full House', baseChips: 40, baseMult: 4 },
-            FOUR_OF_A_KIND: { name: 'Four of a Kind', baseChips: 60, baseMult: 7 },
-            FLUSH_HOUSE: { name: 'Flush House', baseChips: 70, baseMult: 7 }, // Full House + Flush
-            STRAIGHT_FLUSH: { name: 'Straight Flush', baseChips: 100, baseMult: 8 },
-            FIVE_OF_A_KIND: { name: 'Five of a Kind', baseChips: 120, baseMult: 10 }, // Requires 5 cards of same rank
-            // Add more complex hands later if needed
-        };
-        const PLANET_CARDS = { // Defines which hand type each planet card levels up
-            HIGH_CARD: { name: "Mercury", handTypeKey: "HIGH_CARD", cost: 3, description: "Levels up High Card" },
-            PAIR: { name: "Venus", handTypeKey: "PAIR", cost: 3, description: "Levels up Pair" },
-            TWO_PAIR: { name: "Earth", handTypeKey: "TWO_PAIR", cost: 4, description: "Levels up Two Pair" },
-            THREE_OF_A_KIND: { name: "Mars", handTypeKey: "THREE_OF_A_KIND", cost: 4, description: "Levels up Three of a Kind" },
-            STRAIGHT: { name: "Jupiter", handTypeKey: "STRAIGHT", cost: 4, description: "Levels up Straight" },
-            FLUSH: { name: "Saturn", handTypeKey: "FLUSH", cost: 4, description: "Levels up Flush" },
-            FULL_HOUSE: { name: "Uranus", handTypeKey: "FULL_HOUSE", cost: 4, description: "Levels up Full House" },
-            FOUR_OF_A_KIND: { name: "Neptune", handTypeKey: "FOUR_OF_A_KIND", cost: 5, description: "Levels up Four of a Kind" },
-            FLUSH_HOUSE: { name: "Pluto", handTypeKey: "FLUSH_HOUSE", cost: 5, description: "Levels up Flush House" }, // Example, Balatro has specific planets
-            STRAIGHT_FLUSH: { name: "Eris", handTypeKey: "STRAIGHT_FLUSH", cost: 5, description: "Levels up Straight Flush" },
-            FIVE_OF_A_KIND: { name: "Ceres", handTypeKey: "FIVE_OF_A_KIND", cost: 6, description: "Levels up Five of a Kind" },
-        };
-        const PLANET_LEVEL_UP_CHIPS = 10; // Generic for now
-        const PLANET_LEVEL_UP_MULT = 1;   // Generic for now
+        let currentPlayer = 'X';
+        let gameState = ['', '', '', '', '', '', '', '', ''];
+        let gameActive = true;
 
-        const MAX_HAND_SIZE = 8;
-        const STARTING_HANDS = 4;
-        const STARTING_DISCARDS = 3;
-        const STARTING_MONEY = 0; // Or maybe 4 for first shop? TBD
+        const winConditions = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+            [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
+            [0, 4, 8], [2, 4, 6] // Diagonals
+        ];
 
-        // --- Game State ---
-        let gameState = {
-            deck: [],
-            hand: [], // Array of card objects { rank: 'A', suit: 'S', id: 'AS_1' }
-            discardPile: [],
-            jokers: [], // Array of joker objects { name: 'Joker', effect: () => {} }
-            money: STARTING_MONEY,
-            currentBlindIndex: 0,
-            blinds: [ // Example blinds
-                { name: "Small Blind", target: 300, money: 5 },
-                { name: "Big Blind", target: 600, money: 8 },
-                { name: "The Wall (Boss)", target: 1000, money: 10, effect: null }, // Boss effect TBD
-            ],
-            handsRemaining: STARTING_HANDS,
-            discardsRemaining: STARTING_DISCARDS,
-            currentScore: 0,
-            selectedCardIds: new Set(), // Store IDs of selected cards in hand
-            shopPool: [], // Jokers available in the current shop
-            gamePhase: 'playing', // 'playing', 'shop', 'game_over'
-            lastHandPlayed: null, // Store info about the last hand
-            handLevels: {}, // Stores current level, chips, mult for each hand type
-        };
+        document.querySelectorAll('.cell').forEach(cell => {
+            cell.addEventListener('click', handleCellClick);
+        });
 
-        // --- DOM Elements ---
-        const handArea = document.getElementById('hand-area');
-        const jokersArea = document.getElementById('jokers-area');
-        const infoArea = document.getElementById('info-area');
-        const actionsArea = document.getElementById('actions-area');
-        const shopArea = document.getElementById('shop-area');
-        const playButton = document.getElementById('play-button');
-        const discardButton = document.getElementById('discard-button');
-        const selectedCountSpan = document.getElementById('selected-count');
-        const selectedCountDiscardSpan = document.getElementById('selected-count-discard');
-        const handSizeSpan = document.getElementById('hand-size');
-        const blindNameSpan = document.getElementById('blind-name');
-        const blindTargetSpan = document.getElementById('blind-target');
-        const currentScoreSpan = document.getElementById('current-score');
-        const moneySpan = document.getElementById('money');
-        const handsRemainingSpan = document.getElementById('hands-remaining');
-        const discardsRemainingSpan = document.getElementById('discards-remaining');
-        const lastHandInfoSpan = document.getElementById('last-hand-info');
-        const shopItemsDiv = document.getElementById('shop-items');
-        const shopMoneySpan = document.getElementById('shop-money');
-        const leaveShopButton = document.getElementById('leave-shop-button');
+        function handleCellClick(e) {
+            const index = parseInt(e.target.getAttribute('data-index'));
 
+            if (gameState[index] !== '' || !gameActive) return;
 
-        // --- Core Functions ---
-        function createDeck() {
-            gameState.deck = [];
-            let idCounter = 0;
-            for (const suitKey in SUITS) {
-                for (const rank of RANKS) {
-                    gameState.deck.push({
-                        rank: rank,
-                        suit: suitKey,
-                        id: `${rank}${suitKey}_${idCounter++}`, // Unique ID for each card instance
-                        edition: null, // 'foil', 'holo', 'polychrome'
-                        seal: null, // 'gold', 'red', 'blue', 'purple'
-                    });
-                }
-            }
-        }
-
-        function shuffleDeck() {
-            // Fisher-Yates (Knuth) Shuffle
-            for (let i = gameState.deck.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [gameState.deck[i], gameState.deck[j]] = [gameState.deck[j], gameState.deck[i]];
-            }
-        }
-
-        function drawCards(count) {
-            const drawnCards = [];
-            for (let i = 0; i < count && gameState.hand.length < MAX_HAND_SIZE; i++) {
-                if (gameState.deck.length === 0) {
-                    if (gameState.discardPile.length === 0) break; // No cards left anywhere
-                    // Reshuffle discard pile into deck
-                    gameState.deck = [...gameState.discardPile];
-                    gameState.discardPile = [];
-                    shuffleDeck();
-                    console.log("Reshuffled discard pile into deck.");
-                }
-                 if (gameState.deck.length > 0) { // Check again after potential reshuffle
-                    const card = gameState.deck.pop();
-                    drawnCards.push(card);
-                 }
-            }
-            gameState.hand.push(...drawnCards);
-            return drawnCards.length; // Return how many cards were actually drawn
-        }
-
-        function playHand() {
-            const selectedIds = Array.from(gameState.selectedCardIds);
-            if (selectedIds.length === 0 || selectedIds.length > 5 || gameState.handsRemaining <= 0 || gameState.gamePhase !== 'playing') {
-                console.error("Invalid state for playing hand.");
+            gameState[index] = currentPlayer;
+            e.target.textContent = currentPlayer;
+            
+            if (checkWin()) {
+                document.getElementById('status').textContent = `Player ${currentPlayer} wins!`;
+                gameActive = false;
                 return;
             }
 
-            console.log("Playing hand:", selectedIds);
-            const playedCards = [];
-            const remainingHand = [];
-
-            // Separate played cards from the hand
-            gameState.hand.forEach(card => {
-                if (selectedIds.includes(card.id)) {
-                    playedCards.push(card);
-                } else {
-                    remainingHand.push(card);
-                }
-            });
-
-            // Evaluate the played hand
-            const evaluation = evaluateHand(playedCards);
-            if (!evaluation || !evaluation.handType) {
-                console.error("Could not evaluate hand.");
-                // Maybe provide feedback to user? For now, just cancel play.
+            if (checkDraw()) {
+                document.getElementById('status').textContent = "Game ended in a draw!";
+                gameActive = false;
                 return;
             }
 
-            // Calculate score, passing the evaluation context
-            const score = calculateScore(evaluation.baseChips, evaluation.baseMult, playedCards, evaluation);
-            gameState.currentScore += score;
-            gameState.lastHandPlayed = { name: evaluation.handType.name, score: score };
-            console.log(`Played ${evaluation.handType.name} for ${score} points.`);
-
-            // Update game state
-            gameState.hand = remainingHand;
-            gameState.discardPile.push(...playedCards);
-            gameState.handsRemaining--;
-
-            // Draw replacement cards
-            const cardsToDraw = Math.min(playedCards.length, MAX_HAND_SIZE - gameState.hand.length);
-            drawCards(cardsToDraw);
-
-            // Clear selection
-            clearSelection(); // Clears the Set, UI update will handle visuals
-
-            // Check game state (win/loss)
-            const currentBlind = gameState.blinds[gameState.currentBlindIndex];
-            if (gameState.currentScore >= currentBlind.target) {
-                endRound(true); // Won the round
-            } else if (gameState.handsRemaining <= 0) {
-                endRound(false); // Lost the round (out of hands)
-            } else {
-                updateUI(); // Just update UI if round continues
-            }
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            document.getElementById('status').textContent = `Player ${currentPlayer}'s turn`;
         }
 
-        function discardCards() {
-            const selectedIds = Array.from(gameState.selectedCardIds);
-             if (selectedIds.length === 0 || gameState.discardsRemaining <= 0 || gameState.gamePhase !== 'playing') {
-                 console.error("Invalid state for discarding cards.");
-                 return;
-             }
-            // Balatro allows discarding 1 to 5 cards, let's enforce that
-            if (selectedIds.length > 5) {
-                 console.warn("Cannot discard more than 5 cards.");
-                 // Provide user feedback? For now, just prevent discard.
-                 // Alternatively, could just discard the first 5 selected. Let's prevent.
-                 return;
-            }
-
-
-            console.log("Discarding cards:", selectedIds);
-            const discardedCards = [];
-            const remainingHand = [];
-
-            // Separate discarded cards
-            gameState.hand.forEach(card => {
-                if (selectedIds.includes(card.id)) {
-                    discardedCards.push(card);
-                } else {
-                    remainingHand.push(card);
-                }
+        function checkWin() {
+            return winConditions.some(condition => {
+                return condition.every(index => {
+                    return gameState[index] === currentPlayer;
+                });
             });
-
-             // Update game state
-            gameState.hand = remainingHand;
-            gameState.discardPile.push(...discardedCards);
-            gameState.discardsRemaining--;
-
-            // Draw replacement cards
-            const cardsToDraw = Math.min(discardedCards.length, MAX_HAND_SIZE - gameState.hand.length);
-            drawCards(cardsToDraw);
-
-            // Clear selection and update UI
-            clearSelection();
-            updateUI();
         }
 
-
-        // --- Hand Evaluation Logic ---
-
-        // Helper to get rank value (for sorting and straight checks)
-        function getRankValue(rank) {
-            if (/\d/.test(rank)) return parseInt(rank);
-            if (rank === 'T') return 10;
-            if (rank === 'J') return 11;
-            if (rank === 'Q') return 12;
-            if (rank === 'K') return 13;
-            if (rank === 'A') return 14; // Ace high for now
-            return 0;
+        function checkDraw() {
+            return gameState.every(cell => cell !== '');
         }
 
-        // Helper to count ranks and suits
-        function getCardCounts(cards) {
-            const ranks = {};
-            const suits = {};
-            for (const card of cards) {
-                ranks[card.rank] = (ranks[card.rank] || 0) + 1;
-                suits[card.suit] = (suits[card.suit] || 0) + 1;
-            }
-            return { ranks, suits };
+        function resetGame() {
+            currentPlayer = 'X';
+            gameState = ['', '', '', '', '', '', '', '', ''];
+            gameActive = true;
+            document.getElementById('status').textContent = "Player X's turn";
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.textContent = '';
+            });
         }
-
-        // Helper to check for flush
-        function isFlush(suits) {
-            return Object.keys(suits).length === 1;
-        }
-
-        // Helper to check for straight
-        function isStraight(ranks) {
-            const rankValues = Object.keys(ranks).map(getRankValue).sort((a, b) => a - b);
-            if (rankValues.length < 5) return false; // Need 5 unique ranks for a straight usually, but Balatro allows smaller straights
-
-            // Check for standard straight
-            let straight = true;
-            for (let i = 0; i < rankValues.length - 1; i++) {
-                if (rankValues[i+1] !== rankValues[i] + 1) {
-                    straight = false;
-                    break;
-                }
-            }
-            if (straight) return true;
-
-            // Check for Ace-low straight (A, 2, 3, 4, 5)
-            if (rankValues.length === 5 && rankValues.join(',') === '2,3,4,5,14') {
-                 // Adjust Ace value for scoring later if needed
-                 // For detection, replace 14 with 1 temporarily
-                 const aceLowValues = rankValues.map(r => r === 14 ? 1 : r).sort((a, b) => a - b);
-                 straight = true;
-                 for (let i = 0; i < aceLowValues.length - 1; i++) {
-                    if (aceLowValues[i+1] !== aceLowValues[i] + 1) {
-                        straight = false;
-                        break;
-                    }
-                 }
-                 if (straight) return true;
-            }
-
-            return false;
-        }
-
-
-        function evaluateHand(cards) {
-            if (!cards || cards.length === 0) {
-                return { handType: null, baseChips: 0, baseMult: 0 }; // Or handle error appropriately
-            }
-
-            const { ranks, suits } = getCardCounts(cards);
-            const rankCounts = Object.values(ranks).sort((a, b) => b - a);
-            const isFlushHand = isFlush(suits);
-            const isStraightHand = isStraight(ranks);
-
-            let identifiedHandTypeName = null;
-
-            // --- Check Hand Types (Highest to Lowest) ---
-            if (cards.length === 5 && rankCounts[0] === 5) {
-                identifiedHandTypeName = 'FIVE_OF_A_KIND';
-            } else if (isStraightHand && isFlushHand) {
-                identifiedHandTypeName = 'STRAIGHT_FLUSH';
-            } else if (rankCounts[0] === 3 && rankCounts[1] === 2 && isFlushHand) {
-                identifiedHandTypeName = 'FLUSH_HOUSE';
-            } else if (rankCounts[0] === 4) {
-                identifiedHandTypeName = 'FOUR_OF_A_KIND';
-            } else if (rankCounts[0] === 3 && rankCounts[1] === 2) {
-                identifiedHandTypeName = 'FULL_HOUSE';
-            } else if (isFlushHand) {
-                identifiedHandTypeName = 'FLUSH';
-            } else if (isStraightHand) {
-                identifiedHandTypeName = 'STRAIGHT';
-            } else if (rankCounts[0] === 3) {
-                identifiedHandTypeName = 'THREE_OF_A_KIND';
-            } else if (rankCounts[0] === 2 && rankCounts[1] === 2) {
-                identifiedHandTypeName = 'TWO_PAIR';
-            } else if (rankCounts[0] === 2) {
-                identifiedHandTypeName = 'PAIR';
-            } else {
-                identifiedHandTypeName = 'HIGH_CARD';
-            }
-
-            const handLevelData = gameState.handLevels[identifiedHandTypeName];
-            return {
-                handType: HAND_TYPES[identifiedHandTypeName], // Keep original name and structure for reference
-                baseChips: handLevelData.baseChips,
-                baseMult: handLevelData.baseMult,
-                level: handLevelData.level
-            };
-        }
-
-        // --- End Hand Evaluation ---
-
-
-        function calculateScore(baseChips, baseMult, playedCards, handEvaluation) { // Pass evaluation result for context
-            let currentChips = baseChips;
-            let currentMult = baseMult;
-            let additiveMult = 0; // Accumulate additive mult bonuses from Jokers and Holo cards
-            let multiplicativeMultProduct = 1; // Start with 1 for X-Mult from Jokers
-            let polychromeMultiplier = 1; // For Polychrome edition cards
-
-            // --- Apply Card Edition Effects (before Jokers) ---
-            let goldSealMoneyEarned = 0;
-            for (const card of playedCards) {
-                if (card.edition === 'foil') {
-                    console.log(`Applying Foil edition on ${card.rank}${card.suit}: +50 Chips`);
-                    currentChips += 50;
-                }
-                if (card.edition === 'holo') {
-                    console.log(`Applying Holo edition on ${card.rank}${card.suit}: +10 Mult`);
-                    additiveMult += 10;
-                }
-                if (card.edition === 'polychrome') {
-                    console.log(`Applying Polychrome edition on ${card.rank}${card.suit}: x1.5 Mult`);
-                    polychromeMultiplier *= 1.5;
-                }
-                if (card.seal === 'gold') {
-                    // Money is typically awarded after scoring, but we'll flag it here
-                    goldSealMoneyEarned += 3;
-                }
-            }
-
-            console.log(`Score after card editions: ${currentChips} Chips * ${currentMult + additiveMult} Mult (additive part)`);
-
-            // --- Apply Joker Effects ---
-            for (const joker of gameState.jokers) {
-                 let conditionMet = true;
-                 if (joker.condition) {
-                     conditionMet = joker.condition({ handType: handEvaluation.handType, playedCards: playedCards });
-                 }
-
-                 if (conditionMet) {
-                    switch (joker.effectType) {
-                        case 'additive_chips':
-                            console.log(`Applying Joker "${joker.name}": +${joker.value} Chips`);
-                            currentChips += joker.value;
-                            break;
-                        case 'additive_mult':
-                             console.log(`Applying Joker "${joker.name}": +${joker.value} Mult`);
-                            additiveMult += joker.value;
-                            break;
-                        case 'multiplicative_mult':
-                            console.log(`Applying Joker "${joker.name}": x${joker.value} Mult`);
-                            multiplicativeMultProduct *= joker.value;
-                            break;
-                        default:
-                            console.warn(`Unknown effect type for Joker "${joker.name}": ${joker.effectType}`);
-                    }
-                 }
-            }
-
-            // Combine base mult and additive mult bonuses
-            currentMult += additiveMult;
-
-            // Apply multiplicative mult product from Jokers
-            let scoreBeforePolychrome = currentChips * currentMult * multiplicativeMultProduct;
-
-            // Apply Polychrome multiplier at the end
-            const finalScore = scoreBeforePolychrome * polychromeMultiplier;
-
-            console.log(`Score after Jokers: ${currentChips} Chips * ${currentMult} Mult (after additive) * ${multiplicativeMultProduct} (Joker X Mult) = ${scoreBeforePolychrome}`);
-            if (polychromeMultiplier > 1) {
-                console.log(`Applying Polychrome X Mult: ${scoreBeforePolychrome} * ${polychromeMultiplier} = ${finalScore}`);
-            }
-            console.log(`Final score: ${finalScore}`);
-
-            // Award money from Gold Seals
-            if (goldSealMoneyEarned > 0) {
-                gameState.money += goldSealMoneyEarned;
-                console.log(`Earned $${goldSealMoneyEarned} from Gold Seals.`);
-                // UI update for money will happen in updateUI() called after playHand sequence
-            }
-
-            return finalScore;
-        }
-
-
-        function setupRound() {
-            const blind = gameState.blinds[gameState.currentBlindIndex];
-            gameState.currentScore = 0;
-            gameState.handsRemaining = STARTING_HANDS;
-            gameState.discardsRemaining = STARTING_DISCARDS;
-            gameState.lastHandPlayed = null;
-            // Potentially clear hand and redraw? Or keep existing hand? Balatro keeps hand.
-            drawCards(MAX_HAND_SIZE - gameState.hand.length); // Fill hand
-            gameState.gamePhase = 'playing';
-            hideShop();
-            updateUI();
-        }
-
-        function endRound(won) {
-            if (won) {
-                console.log("Blind Beat!");
-                const blind = gameState.blinds[gameState.currentBlindIndex];
-                gameState.money += blind.money;
-                gameState.currentBlindIndex++;
-                if (gameState.currentBlindIndex >= gameState.blinds.length) {
-                    console.log("GAME WON!"); // Or move to endless mode?
-                    gameState.gamePhase = 'game_over'; // Simple end for now
-                    // TODO: Show win screen
-                } else {
-                    // Prepare and show shop
-                    prepareShop();
-                    showShopUI();
-                    gameState.gamePhase = 'shop';
-                }
-            } else {
-                console.log("Game Over - Failed to beat blind");
-                gameState.gamePhase = 'game_over';
-                // TODO: Show game over screen
-            }
-            updateUI();
-        }
-
-        function prepareShop() {
-            // TODO: Populate gameState.shopPool with Jokers to buy
-            // Define some actual example Jokers
-             const availableJokers = [
-                { id: 'joker_add_chips', name: "Greedy Joker", description: "+30 Chips", cost: 4, effectType: 'additive_chips', value: 30 },
-                { id: 'joker_add_mult', name: "Sly Joker", description: "+4 Mult", cost: 4, effectType: 'additive_mult', value: 4 },
-                { id: 'joker_mult_mult', name: "Crazy Joker", description: "x1.5 Mult", cost: 5, effectType: 'multiplicative_mult', value: 1.5 },
-                // { id: 'joker_flush_mult', name: "Ocean Joker", description: "+8 Mult if hand is Flush", cost: 6, condition: (handInfo) => handInfo.handType === HAND_TYPES.FLUSH, effectType: 'additive_mult', value: 8 },
-             ];
-
-             // Simple shop: offer 2 random jokers from the available pool (prevent duplicates)
-                 gameState.shopPool = [];
-             const shuffledJokers = [...availableJokers].sort(() => 0.5 - Math.random());
-
-             // Add up to 2 Jokers
-             for (let i = 0; i < 2 && i < shuffledJokers.length; i++) {
-                 gameState.shopPool.push({
-                     type: 'joker', // Differentiate item type
-                     ...shuffledJokers[i],
-                     buyAction: function() { // Renamed for clarity
-                         gameState.jokers.push({
-                             id: this.id,
-                             name: this.name,
-                             description: this.description,
-                             effectType: this.effectType,
-                             value: this.value,
-                             condition: this.condition
-                         });
-                     }
-                 });
-             }
-
-            // Potentially add one Planet Card
-            const availablePlanetKeys = Object.keys(PLANET_CARDS);
-            if (availablePlanetKeys.length > 0 && Math.random() < 0.5) { // 50% chance to offer a planet card if shop isn't full
-                const randomPlanetKey = availablePlanetKeys[Math.floor(Math.random() * availablePlanetKeys.length)];
-                const planetCardData = PLANET_CARDS[randomPlanetKey];
-                // Ensure we don't offer a planet for a maxed-out hand (simple check for now)
-                // A more robust system would track max levels or remove planets from pool.
-                if (gameState.handLevels[planetCardData.handTypeKey].level < 10) { // Arbitrary max level 10
-                     gameState.shopPool.push({
-                        type: 'planet',
-                        id: `planet_${planetCardData.handTypeKey}`,
-                        name: planetCardData.name,
-                        description: `${planetCardData.description} (Currently Lvl ${gameState.handLevels[planetCardData.handTypeKey].level})`,
-                        cost: planetCardData.cost,
-                        handTypeKey: planetCardData.handTypeKey,
-                        buyAction: function() {
-                            const handLevel = gameState.handLevels[this.handTypeKey];
-                            handLevel.level++;
-                            handLevel.baseChips += PLANET_LEVEL_UP_CHIPS;
-                            handLevel.baseMult += PLANET_LEVEL_UP_MULT;
-                            console.log(`${HAND_TYPES[this.handTypeKey].name} leveled up to ${handLevel.level}. New stats: ${handLevel.baseChips} Chips, ${handLevel.baseMult} Mult.`);
-                        }
-                    });
-                }
-            }
-             // Shuffle the entire shop pool so jokers and planets are mixed
-             gameState.shopPool.sort(() => 0.5 - Math.random());
-
-             console.log("Prepared shop with items:", gameState.shopPool.map(item => `${item.type}: ${item.name}`));
-        }
-
-        function buyShopItem(itemId) {
-            const itemToBuy = gameState.shopPool.find(item => item.id === itemId);
-            if (itemToBuy && gameState.money >= itemToBuy.cost) {
-                gameState.money -= itemToBuy.cost;
-                itemToBuy.buyAction(); // Execute the specific buy action
-
-                // Remove from shop pool
-                gameState.shopPool = gameState.shopPool.filter(item => item.id !== itemId);
-                console.log(`Bought ${itemToBuy.type}:`, itemToBuy.name);
-
-                updateShopUI(); // Update shop display
-                updateUI(); // Update main game UI
-            } else {
-                console.log("Cannot afford or find item:", itemId);
-            }
-        }
-
-
-        // --- UI Update Functions ---
-
-        function renderCard(card) {
-            const suitSymbol = SUITS[card.suit];
-            const colorClass = (card.suit === 'H' || card.suit === 'D') ? 'text-red' : 'text-black';
-            const isSelected = gameState.selectedCardIds.has(card.id);
-
-            return `
-                <div
-                    class="card ${colorClass} ${isSelected ? 'selected' : ''}"
-                    data-card-id="${card.id}"
-                    onclick="toggleCardSelection('${card.id}')"
-                >
-                    <div class="card-rank text-left">${card.rank}</div>
-                    <div class="card-suit">${suitSymbol}</div>
-                    <div class="card-rank bottom text-right">${card.rank}</div>
-                </div>
-            `;
-        }
-
-        function renderHand() {
-            if (gameState.hand.length === 0) {
-                 handArea.innerHTML = '<span class="text-gray-400 italic">Hand is empty</span>';
-            } else {
-                 handArea.innerHTML = gameState.hand.map(renderCard).join('');
-            }
-            handSizeSpan.textContent = gameState.hand.length;
-        }
-
-        function renderJokers() {
-             if (gameState.jokers.length === 0) {
-                 jokersArea.innerHTML = '<span class="text-gray-400 italic">No Jokers yet</span>';
-            } else {
-                // Render Jokers based on the added structure
-                jokersArea.innerHTML = gameState.jokers.map(joker =>
-                    `<div class="bg-purple-700 p-2 m-1 rounded border border-purple-400 text-sm w-24 text-center">
-                        <p class="font-bold mb-1">${joker.name}</p>
-                        <p class="text-xs">${joker.description}</p>
-                    </div>`
-                ).join('');
-            }
-        }
-
-        function renderInfo() {
-            const blind = gameState.blinds[gameState.currentBlindIndex];
-            blindNameSpan.textContent = blind ? blind.name : 'N/A';
-            blindTargetSpan.textContent = blind ? blind.target : 'N/A';
-            currentScoreSpan.textContent = gameState.currentScore;
-            moneySpan.textContent = gameState.money;
-            handsRemainingSpan.textContent = gameState.handsRemaining;
-            discardsRemainingSpan.textContent = gameState.discardsRemaining;
-
-            // Update last hand info
-            if (gameState.lastHandPlayed) {
-                 lastHandInfoSpan.textContent = `Last Hand: ${gameState.lastHandPlayed.name} (${gameState.lastHandPlayed.score} points)`;
-            } else {
-                 lastHandInfoSpan.textContent = '';
-            }
-        }
-
-         function updateActionButtons() {
-            const selectionSize = gameState.selectedCardIds.size;
-            selectedCountSpan.textContent = selectionSize;
-            selectedCountDiscardSpan.textContent = selectionSize;
-
-            // Enable Play button if cards are selected (add more conditions later, e.g., <= 5 cards)
-            playButton.disabled = selectionSize === 0 || selectionSize > 5 || gameState.handsRemaining <= 0 || gameState.gamePhase !== 'playing';
-
-            // Enable Discard button if cards are selected and discards remain
-            discardButton.disabled = selectionSize === 0 || gameState.discardsRemaining <= 0 || gameState.gamePhase !== 'playing';
-        }
-
-        function showShopUI() {
-            prepareShop(); // Ensure shop pool is ready
-            updateShopUI();
-            shopArea.style.display = 'flex';
-        }
-
-        function updateShopUI() {
-             shopMoneySpan.textContent = gameState.money;
-             if (gameState.shopPool.length === 0) {
-                 shopItemsDiv.innerHTML = '<p class="text-gray-400 italic col-span-2 text-center">Shop is empty.</p>';
-             } else {
-                 shopItemsDiv.innerHTML = gameState.shopPool.map(item => {
-                    let itemClass = 'bg-gray-700';
-                    let buttonClass = 'bg-yellow-500 hover:bg-yellow-600';
-                    if (item.type === 'planet') {
-                        itemClass = 'bg-indigo-700'; // Different color for planets
-                        buttonClass = 'bg-indigo-400 hover:bg-indigo-500';
-                    }
-
-                    return `
-                    <div class="${itemClass} p-3 rounded border border-gray-600 flex flex-col justify-between">
-                        <div>
-                            <h4 class="font-bold text-lg">${item.name} <span class="text-xs opacity-70">(${item.type})</span></h4>
-                            <p class="text-sm text-gray-300 mb-2">${item.description}</p>
-                        </div>
-                        <button
-                            class="${buttonClass} text-black font-bold py-1 px-3 rounded text-sm w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                            onclick="buyShopItem('${item.id}')"
-                            ${gameState.money < item.cost ? 'disabled' : ''}
-                        >
-                            Buy ($${item.cost})
-                        </button>
-                    </div>
-                `}).join('');
-             }
-        }
-
-
-        function hideShop() {
-            shopArea.style.display = 'none';
-        }
-
-        function updateUI() {
-            renderHand();
-            renderJokers();
-            renderInfo();
-            updateActionButtons();
-            // Potentially update other elements based on gamePhase
-             if (gameState.gamePhase === 'game_over') {
-                // Simple game over message for now
-                document.getElementById('game-container').innerHTML = `
-                    <div class="text-center p-10 bg-gray-700 rounded">
-                        <h1 class="text-4xl font-bold mb-4">Game Over</h1>
-                        <p class="text-xl">Final Score: ${gameState.currentScore}</p>
-                        <p class="text-xl">Money: $${gameState.money}</p>
-                        <button onclick="initGame()" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Play Again?</button>
-                    </div>`;
-            }
-        }
-
-        // --- Event Handlers ---
-        function toggleCardSelection(cardId) {
-            if (gameState.gamePhase !== 'playing') return; // Don't allow selection outside playing phase
-
-            const cardElement = handArea.querySelector(`[data-card-id="${cardId}"]`);
-            if (!cardElement) return;
-
-            if (gameState.selectedCardIds.has(cardId)) {
-                gameState.selectedCardIds.delete(cardId);
-                cardElement.classList.remove('selected');
-            } else {
-                 // Optional: Limit selection size (e.g., max 5 for playing)
-                 // if (gameState.selectedCardIds.size < 5) {
-                    gameState.selectedCardIds.add(cardId);
-                    cardElement.classList.add('selected');
-                 // }
-            }
-            updateActionButtons();
-        }
-
-        function clearSelection() {
-            gameState.selectedCardIds.clear();
-            // We'll re-render the hand anyway, which removes 'selected' class
-        }
-
-        playButton.addEventListener('click', () => {
-            if (!playButton.disabled) {
-                playHand(); // Call the core logic function
-            }
-        });
-
-        discardButton.addEventListener('click', () => {
-             if (!discardButton.disabled) {
-                discardCards(); // Call the core logic function
-            }
-        });
-
-        leaveShopButton.addEventListener('click', () => {
-            // Start the next round
-            if (gameState.currentBlindIndex < gameState.blinds.length) {
-                 setupRound();
-            } else {
-                // Should have been caught by endRound, but as a fallback
-                console.log("Game already won/ended.");
-                 hideShop();
-            }
-        });
-
-
-        // --- Initialization ---
-        function initGame() {
-            console.log("Initializing game...");
-             // Reset state completely
-            gameState = {
-                deck: [],
-                hand: [],
-                discardPile: [],
-                jokers: [],
-                money: STARTING_MONEY,
-                currentBlindIndex: 0,
-                blinds: [
-                    { name: "Small Blind", target: 300, money: 5 },
-                    { name: "Big Blind", target: 600, money: 8 },
-                    { name: "The Wall (Boss)", target: 1000, money: 10, effect: null },
-                ],
-                handsRemaining: STARTING_HANDS,
-                discardsRemaining: STARTING_DISCARDS,
-                currentScore: 0,
-                selectedCardIds: new Set(),
-                shopPool: [],
-                gamePhase: 'playing',
-                lastHandPlayed: null,
-                handLevels: {}, // Initialize as empty, will be populated below
-            };
-
-            // Initialize hand levels
-            for (const typeKey in HAND_TYPES) {
-                gameState.handLevels[typeKey] = {
-                    level: 0,
-                    baseChips: HAND_TYPES[typeKey].baseChips,
-                    baseMult: HAND_TYPES[typeKey].baseMult,
-                    // Store original values for reset or reference if needed
-                    originalBaseChips: HAND_TYPES[typeKey].baseChips,
-                    originalBaseMult: HAND_TYPES[typeKey].baseMult,
-                };
-            }
-
-            // Restore main game container if it was replaced by game over screen
-            const body = document.querySelector('body');
-            if (!document.getElementById('game-container')) {
-                 body.innerHTML = `
-                    <!-- Game Area -->
-                    <div id="game-container" class="max-w-4xl mx-auto">
-                        {/* Content structure copied from initial HTML */}
-                        <div id="info-area" class="flex justify-between items-center bg-gray-700 p-3 rounded mb-4">...</div>
-                        <div class="mb-4"><h3 class="text-md font-semibold mb-1">Jokers:</h3><div id="jokers-area" class="flex flex-wrap bg-gray-600 p-2 rounded min-h-[7rem] no-scrollbar overflow-x-auto">...</div></div>
-                        <div class="mb-4"><h3 class="text-md font-semibold mb-1">Hand (<span id="hand-size">0</span>/8):</h3><div id="hand-area" class="flex flex-wrap justify-center bg-gray-600 p-2 rounded min-h-[7rem] no-scrollbar overflow-x-auto">...</div></div>
-                        <div id="actions-area" class="flex justify-center space-x-4 mb-4">...</div>
-                        <div id="last-hand-info" class="text-center text-gray-400 mb-4 h-6">...</div>
-                        <div id="shop-area" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center" style="display: none;">...</div>
-                    </div>
-                 `; // <-- Added missing backtick here
-                 // Re-assign DOM element variables if the container was recreated
-                 // This is tricky with inline script. A better approach would be needed for complex resets.
-                 // For now, we assume the script block remains and we just reset state.
-                 console.warn("Game container was recreated. Full re-initialization might be needed.");
-                 // Re-get elements - THIS IS INEFFICIENT AND ERROR PRONE - better structure needed for robust reset
-                 // handArea = document.getElementById('hand-area'); ... etc.
-            }
-
-
-            createDeck();
-            shuffleDeck();
-            setupRound(); // Includes initial draw and UI update
-            console.log("Game Initialized. State:", gameState);
-        }
-
-        // --- Start Game ---
-        document.addEventListener('DOMContentLoaded', initGame); // Start when the page is loaded
-
     </script>
 </body>
 </html>
